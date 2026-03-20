@@ -28,22 +28,50 @@ export default function LiveDetectionHero() {
       setIsModelLoading(true)
       setError(null)
       
-      inferEngine
-        .startWorker(
-          "coco",
-          3,
-          "rf_EsVTlbAbaZPLmAFuQwWoJgFpMU82"
-        )
-        .then((id) => {
-          setModelWorkerId(id)
-          setModelLoaded(true)
+      // Configuration for your labubu model
+      const PUBLISHABLE_KEY = "rf_1p1rNn841ZQeKvx0lzLX5NWNeQp2"
+      
+      // Try different model ID formats
+      const modelConfigs = [
+        { id: "labubu", version: 1, description: "Model name only" },
+        { id: "labubu-7hw2k", version: 1, description: "Model with workspace suffix" },
+        { id: "labubu-7hw2k/1", version: null, description: "Model with version in ID" },
+      ]
+      
+      let attemptIndex = 0
+      
+      const tryLoadModel = () => {
+        if (attemptIndex >= modelConfigs.length) {
+          console.error("All model configurations failed")
+          setError("Failed to load model. Please ensure your model is deployed for web inference at https://app.roboflow.com")
           setIsModelLoading(false)
-        })
-        .catch((err) => {
-          console.error("Failed to load model:", err)
-          setError("Failed to load detection model. Please refresh and try again.")
-          setIsModelLoading(false)
-        })
+          return
+        }
+        
+        const config = modelConfigs[attemptIndex]
+        console.log(`Attempt ${attemptIndex + 1}: Trying ${config.description}`)
+        console.log(`Model ID: "${config.id}", Version: ${config.version}`)
+        
+        const loadPromise = config.version !== null
+          ? inferEngine.startWorker(config.id, config.version, PUBLISHABLE_KEY)
+          : inferEngine.startWorker(config.id, PUBLISHABLE_KEY)
+        
+        loadPromise
+          .then((id) => {
+            console.log(`✅ Success! Model loaded with configuration:`, config)
+            console.log(`Worker ID: ${id}`)
+            setModelWorkerId(id)
+            setModelLoaded(true)
+            setIsModelLoading(false)
+          })
+          .catch((err) => {
+            console.warn(`❌ Failed with ${config.description}:`, err.message || err)
+            attemptIndex++
+            tryLoadModel()
+          })
+      }
+      
+      tryLoadModel()
     }
 
     return () => {
